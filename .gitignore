@@ -14,6 +14,7 @@ demo.script.md
 deployment.guide.md
 
 
+
 # Secrets - NEVER commit credentials
 *.pem
 *.key
@@ -28,6 +29,8 @@ secrets.json
 # Allow Terraform module directories that contain "secret" in their name
 !terraform/modules/secrets/
 !terraform/modules/secrets/**
+*.ps1
+*.sh
 
 # OS
 .DS_Store
