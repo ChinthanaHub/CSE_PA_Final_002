@@ -10,7 +10,6 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-*.claude
 docs/
 
 # Secrets - NEVER commit credentials
@@ -51,7 +50,7 @@ npm-debug.log*
 
 # Logs
 *.log
-*.gitignore
+
 
 # Build artifacts
 dist/
