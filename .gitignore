@@ -51,6 +51,7 @@ npm-debug.log*
 
 # Logs
 *.log
+*.gitignore
 
 # Build artifacts
 dist/
