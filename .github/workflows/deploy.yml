@@ -25,7 +25,7 @@ concurrency:
 env:
   TF_VERSION: "1.7.5"
   AWS_REGION: "us-east-1"
-  APP_NAME: "cse-pa-app"
+  APP_NAME: "cse-pa-final-dev-app"
 
 jobs:
   # ─────────────────────────────────────────
