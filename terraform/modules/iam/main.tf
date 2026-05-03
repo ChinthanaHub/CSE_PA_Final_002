@@ -178,6 +178,16 @@ resource "aws_iam_policy" "github_actions" {
           "secretsmanager:DescribeSecret"
         ]
         Resource = "arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:${var.name}/*"
+      },
+      {
+        Sid    = "TerraformStateKMS"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
+        ]
+        Resource = var.s3_kms_key_arn
       }
     ]
   })

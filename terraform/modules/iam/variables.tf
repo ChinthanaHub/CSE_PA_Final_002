@@ -29,6 +29,11 @@ variable "ecr_kms_key_arn" {
   default     = ""
 }
 
+variable "s3_kms_key_arn" {
+  description = "KMS key ARN used to encrypt the Terraform state S3 bucket"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
