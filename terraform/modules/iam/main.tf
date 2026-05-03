@@ -186,7 +186,8 @@ resource "aws_iam_policy" "github_actions" {
           "ec2:DescribeTags", "ec2:CreateTags", "ec2:DeleteTags",
           "ec2:DescribeAccountAttributes", "ec2:DescribeNetworkInterfaces",
           "ec2:DescribeNetworkAcls", "ec2:DescribeVpcAttribute",
-          "ec2:DescribeKeyPairs", "ec2:DescribeSecurityGroupRules"
+          "ec2:DescribeKeyPairs", "ec2:DescribeSecurityGroupRules",
+          "ec2:DescribeAddressesAttribute"
         ]
         Resource = "*"
       },
@@ -264,7 +265,8 @@ resource "aws_iam_policy" "github_actions_services" {
           "s3:CreateBucket", "s3:DeleteBucket",
           "s3:GetBucketAcl", "s3:PutBucketAcl",
           "s3:GetBucketLogging", "s3:PutBucketLogging",
-          "s3:GetBucketTagging", "s3:PutBucketTagging"
+          "s3:GetBucketTagging", "s3:PutBucketTagging",
+          "s3:GetBucketCORS", "s3:PutBucketCORS", "s3:DeleteBucketCORS"
         ]
         Resource = [
           "arn:aws:s3:::${var.terraform_state_bucket}",
@@ -282,7 +284,19 @@ resource "aws_iam_policy" "github_actions_services" {
           "logs:AssociateKmsKey", "logs:DisassociateKmsKey",
           "logs:ListTagsLogGroup", "logs:ListTagsForResource",
           "logs:TagLogGroup", "logs:UntagLogGroup", "logs:TagResource", "logs:UntagResource",
-          "logs:CreateLogStream", "logs:DescribeLogStreams", "logs:PutLogEvents", "logs:GetLogEvents"
+          "logs:CreateLogStream", "logs:DescribeLogStreams", "logs:PutLogEvents", "logs:GetLogEvents",
+          "logs:DescribeMetricFilters", "logs:PutMetricFilter", "logs:DeleteMetricFilter"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "CloudWatchManage"
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:DescribeAlarms", "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms",
+          "cloudwatch:GetMetricStatistics", "cloudwatch:ListMetrics",
+          "cloudwatch:DescribeAlarmsForMetric", "cloudwatch:TagResource", "cloudwatch:UntagResource",
+          "cloudwatch:ListTagsForResource"
         ]
         Resource = "*"
       },

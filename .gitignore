@@ -10,7 +10,8 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-docs/
+demo.script.md
+deployment.guide.md
 
 
 # Secrets - NEVER commit credentials
