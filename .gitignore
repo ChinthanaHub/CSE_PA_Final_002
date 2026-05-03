@@ -12,6 +12,7 @@ override.tf.json
 *_override.tf.json
 docs/
 
+
 # Secrets - NEVER commit credentials
 *.pem
 *.key
