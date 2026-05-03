@@ -123,6 +123,15 @@ resource "aws_launch_template" "eks_nodes" {
     tags          = merge(var.tags, { Name = "${var.cluster_name}-node-volume" })
   }
 
+  user_data = base64encode(<<-EOT
+    #!/bin/bash
+    set -ex
+    /etc/eks/bootstrap.sh '${var.cluster_name}' \
+      --apiserver-endpoint '${aws_eks_cluster.main.endpoint}' \
+      --b64-cluster-ca '${aws_eks_cluster.main.certificate_authority[0].data}'
+  EOT
+  )
+
   tags = var.tags
 }
 
