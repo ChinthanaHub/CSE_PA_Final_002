@@ -1,0 +1,282 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  security-events: write
+
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  TF_VERSION: "1.7.5"
+  AWS_REGION: "us-east-1"
+  ENVIRONMENT: "dev"
+
+jobs:
+  # ─────────────────────────────────────────
+  # SAST — Static Application Security Testing
+  # ─────────────────────────────────────────
+  sast-semgrep:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/default
+            p/owasp-top-ten
+            p/secrets
+            p/docker
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+  # ─────────────────────────────────────────
+  # SCA — Software Composition Analysis
+  # ─────────────────────────────────────────
+  sca-dependency-check:
+    name: SCA (OWASP Dependency-Check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: "CSE-PA-Final"
+          path: "."
+          format: "HTML,SARIF,JSON"
+          args: >
+            --failOnCVSS 9
+            --enableRetired
+            --suppression suppression.xml
+        env:
+          JAVA_HOME: /opt/jdk
+
+      - name: Upload Dependency-Check Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report
+          path: reports/
+
+  # ─────────────────────────────────────────
+  # IaC Security — Checkov
+  # ─────────────────────────────────────────
+  iac-checkov:
+    name: IaC Security (Checkov)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: terraform/
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          soft_fail: false
+          skip_check: CKV_AWS_8  # Skip checks not applicable to private EKS
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+
+  # ─────────────────────────────────────────
+  # IaC Security — tfsec
+  # ─────────────────────────────────────────
+  iac-tfsec:
+    name: IaC Security (tfsec)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform/
+          format: sarif
+          sarif_file: tfsec.sarif
+          soft_fail: false
+
+      - name: Upload tfsec SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: tfsec.sarif
+
+  # ─────────────────────────────────────────
+  # Terraform Validate & Plan (Dev)
+  # ─────────────────────────────────────────
+  terraform-plan:
+    name: Terraform Plan (Dev)
+    runs-on: ubuntu-latest
+    needs: [sast-semgrep, iac-checkov, iac-tfsec]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          role-session-name: GitHubActions-PR-${{ github.event.pull_request.number }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: terraform/environments/dev
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        working-directory: terraform/environments/dev
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform/environments/dev
+        run: |
+          terraform plan \
+            -out=tfplan.bin \
+            -no-color \
+            -input=false \
+            2>&1 | tee plan-output.txt
+        env:
+          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+
+      - name: Comment Plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('terraform/environments/dev/plan-output.txt', 'utf8');
+            const truncated = planOutput.length > 60000
+              ? planOutput.substring(0, 60000) + '\n...(truncated)'
+              : planOutput;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Terraform Plan (Dev)\n\`\`\`terraform\n${truncated}\n\`\`\``
+            });
+
+      - name: Terraform Drift Detection
+        working-directory: terraform/environments/dev
+        run: |
+          terraform plan -detailed-exitcode -no-color 2>&1 | tail -5
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ "$EXIT_CODE" = "2" ]; then
+            echo "::warning::Terraform drift detected — infrastructure has changed outside of Terraform"
+          fi
+        env:
+          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+
+  # ─────────────────────────────────────────
+  # Secret Scanning — detect hardcoded secrets
+  # ─────────────────────────────────────────
+  secret-scan:
+    name: Secret Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─────────────────────────────────────────
+  # Kubernetes Manifest Validation
+  # ─────────────────────────────────────────
+  k8s-validate:
+    name: Kubernetes Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar -xf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubeconform \
+            -strict \
+            -summary \
+            -kubernetes-version 1.29.0 \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            kubernetes/
+
+  # ─────────────────────────────────────────
+  # Policy validation — Kyverno dry-run
+  # ─────────────────────────────────────────
+  policy-validate:
+    name: Policy Validation (Kyverno CLI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Kyverno CLI
+        run: |
+          curl -LO https://github.com/kyverno/kyverno/releases/latest/download/kyverno-cli_v1.12.3_linux_x86_64.tar.gz
+          tar -xf kyverno-cli_v1.12.3_linux_x86_64.tar.gz
+          sudo mv kyverno /usr/local/bin/
+
+      - name: Kyverno Policy Test
+        run: |
+          kyverno test policies/kyverno/ --detailed-results
+
+  # ─────────────────────────────────────────
+  # Summary gate — all checks must pass
+  # ─────────────────────────────────────────
+  pr-gate:
+    name: PR Gate
+    runs-on: ubuntu-latest
+    needs:
+      - sast-semgrep
+      - sca-dependency-check
+      - iac-checkov
+      - iac-tfsec
+      - terraform-plan
+      - secret-scan
+      - k8s-validate
+      - policy-validate
+    steps:
+      - name: All checks passed
+        run: echo "All security gates passed — PR is ready for review"

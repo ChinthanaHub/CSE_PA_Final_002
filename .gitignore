@@ -1,0 +1,62 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+!*.tfvars.example
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.claude
+
+# Secrets - NEVER commit credentials
+*.pem
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+secrets.yaml
+secrets.json
+*credentials*
+*secret*
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/settings.json
+.idea/
+*.iml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Logs
+*.log
+
+# Build artifacts
+dist/
+build/
+*.zip
+
+# SBOM artifacts (generated at runtime)
+sbom.json
+sbom.spdx
+
+# Cosign
+*.sig
+*.bundle

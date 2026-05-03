@@ -1,0 +1,74 @@
+---
+# Bind read-only role to a developer group
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: read-only-binding
+subjects:
+  - kind: Group
+    name: developers
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: read-only-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Pipeline service account gets deployer role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pipeline-deployer-binding
+subjects:
+  - kind: ServiceAccount
+    name: pipeline-deployer
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: pipeline-deployer-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# External Secrets Operator binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: external-secrets-binding
+subjects:
+  - kind: ServiceAccount
+    name: external-secrets
+    namespace: external-secrets
+roleRef:
+  kind: ClusterRole
+  name: external-secrets-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# App namespace role for app service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-role
+  namespace: app
+rules:
+  - apiGroups: [""]
+    resources: [configmaps, secrets]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-role-binding
+  namespace: app
+subjects:
+  - kind: ServiceAccount
+    name: app-sa
+    namespace: app
+roleRef:
+  kind: Role
+  name: app-role
+  apiGroup: rbac.authorization.k8s.io

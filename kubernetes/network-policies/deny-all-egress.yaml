@@ -1,0 +1,11 @@
+---
+# Default deny-all egress for the app namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: app
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress

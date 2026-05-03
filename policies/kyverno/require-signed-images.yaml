@@ -1,0 +1,35 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-signed-images
+  annotations:
+    policies.kyverno.io/title: Require Signed Container Images (Cosign)
+    policies.kyverno.io/category: Software Supply Chain Security
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/description: >-
+      All container images must be signed using Cosign via the keyless OIDC workflow.
+      Images that cannot be verified will be blocked from deployment.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: verify-image-signature
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [app]
+      verifyImages:
+        - imageReferences:
+            - "*.dkr.ecr.us-east-1.amazonaws.com/cse-pa-app:*"
+          attestors:
+            - entries:
+                - keyless:
+                    subject: "https://github.com/ChinthanaHub/CSE_PA_Final_002/.github/workflows/deploy.yml@refs/heads/main"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev
+          mutateDigest: true
+          required: true
