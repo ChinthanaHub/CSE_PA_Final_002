@@ -266,7 +266,12 @@ resource "aws_iam_policy" "github_actions_services" {
           "s3:GetBucketAcl", "s3:PutBucketAcl",
           "s3:GetBucketLogging", "s3:PutBucketLogging",
           "s3:GetBucketTagging", "s3:PutBucketTagging",
-          "s3:GetBucketCORS", "s3:PutBucketCORS", "s3:DeleteBucketCORS"
+          "s3:GetBucketCORS", "s3:PutBucketCORS", "s3:DeleteBucketCORS",
+          "s3:GetBucketWebsite",
+          "s3:GetAccelerateConfiguration",
+          "s3:GetBucketRequestPayment",
+          "s3:GetBucketObjectLockConfiguration",
+          "s3:GetReplicationConfiguration"
         ]
         Resource = [
           "arn:aws:s3:::${var.terraform_state_bucket}",
@@ -334,14 +339,21 @@ resource "aws_iam_policy" "github_actions_services" {
         Resource = "arn:aws:sns:*:${data.aws_caller_identity.current.account_id}:${var.name}-*"
       },
       {
+        Sid      = "CloudTrailDescribe"
+        Effect   = "Allow"
+        Action   = ["cloudtrail:DescribeTrails", "cloudtrail:GetInsightSelectors",
+                    "cloudtrail:ListTrails"]
+        Resource = "*"
+      },
+      {
         Sid    = "CloudTrailManage"
         Effect = "Allow"
         Action = ["cloudtrail:CreateTrail", "cloudtrail:DeleteTrail", "cloudtrail:GetTrail",
                   "cloudtrail:GetTrailStatus", "cloudtrail:UpdateTrail",
                   "cloudtrail:StartLogging", "cloudtrail:StopLogging",
                   "cloudtrail:GetEventSelectors", "cloudtrail:PutEventSelectors",
-                  "cloudtrail:ListTags", "cloudtrail:AddTags", "cloudtrail:RemoveTags",
-                  "cloudtrail:DescribeTrails"]
+                  "cloudtrail:PutInsightSelectors",
+                  "cloudtrail:ListTags", "cloudtrail:AddTags", "cloudtrail:RemoveTags"]
         Resource = "arn:aws:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/${var.name}-*"
       },
       {
