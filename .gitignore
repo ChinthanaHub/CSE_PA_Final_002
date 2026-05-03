@@ -11,6 +11,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 *.claude
+docs/
 
 # Secrets - NEVER commit credentials
 *.pem
