@@ -249,3 +249,4 @@ The script:
 1. Drains all Kubernetes workloads (RBAC, network policies, Helm releases)
 2. Runs `terraform destroy` to remove all AWS resources
 3. Releases the NAT Gateway EIP (stops hourly charges immediately)
+
