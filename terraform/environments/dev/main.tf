@@ -37,6 +37,7 @@ module "iam" {
   terraform_lock_table   = "cse-pa-final-tfstate-lock-dev"
   ecr_kms_key_arn        = module.kms.s3_kms_key_arn
   s3_kms_key_arn         = module.kms.s3_kms_key_arn
+  eks_kms_key_arn        = module.kms.eks_kms_key_arn
   tags                   = local.common_tags
 }
 
