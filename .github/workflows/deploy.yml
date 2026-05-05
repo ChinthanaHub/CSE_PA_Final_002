@@ -233,11 +233,8 @@ jobs:
           aws eks update-kubeconfig \
             --name ${{ needs.terraform-dev.outputs.cluster-name }} \
             --region ${{ env.AWS_REGION }} \
-            --kubeconfig /home/runner/.kube/config \
-            --alias github-actions \
-            --overwrite-existing
-          kubectl config view --kubeconfig /home/runner/.kube/config
-          kubectl config current-context --kubeconfig /home/runner/.kube/config
+            --kubeconfig /home/runner/.kube/config
+          cat /home/runner/.kube/config
 
       - name: Apply Kubernetes manifests
         run: |
