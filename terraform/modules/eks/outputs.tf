@@ -33,9 +33,9 @@ output "oidc_provider_url" {
   value       = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
-output "node_group_arn" {
-  description = "EKS node group ARN"
-  value       = aws_eks_node_group.main.arn
+output "fargate_pod_execution_role_arn" {
+  description = "IAM role ARN for Fargate pod execution"
+  value       = aws_iam_role.fargate_pod_execution.arn
 }
 
 output "cluster_version" {

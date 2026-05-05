@@ -50,95 +50,6 @@ resource "aws_cloudwatch_log_group" "eks" {
   tags              = var.tags
 }
 
-resource "aws_eks_node_group" "main" {
-  cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "${var.cluster_name}-node-group"
-  node_role_arn   = var.node_role_arn
-  subnet_ids      = var.private_subnet_ids
-  instance_types  = var.node_instance_types
-  capacity_type   = var.capacity_type
-
-  scaling_config {
-    desired_size = var.node_desired_size
-    max_size     = var.node_max_size
-    min_size     = var.node_min_size
-  }
-
-  update_config {
-    max_unavailable = 1
-  }
-
-  launch_template {
-    id      = aws_launch_template.eks_nodes.id
-    version = aws_launch_template.eks_nodes.latest_version
-  }
-
-  labels = {
-    Environment = var.environment
-    NodeType    = "managed"
-  }
-
-  tags = var.tags
-
-  lifecycle {
-    ignore_changes = [scaling_config[0].desired_size]
-  }
-}
-
-resource "aws_launch_template" "eks_nodes" {
-  name_prefix = "${var.cluster_name}-node-"
-  image_id    = data.aws_ssm_parameter.eks_ami.value
-
-  vpc_security_group_ids = [var.nodes_security_group_id]
-
-  block_device_mappings {
-    device_name = "/dev/xvda"
-    ebs {
-      volume_size           = var.node_volume_size
-      volume_type           = "gp3"
-      encrypted             = true
-      kms_key_id            = var.kms_key_arn
-      delete_on_termination = true
-    }
-  }
-
-  metadata_options {
-    http_endpoint               = "enabled"
-    http_tokens                 = "required"
-    http_put_response_hop_limit = 1
-    instance_metadata_tags      = "enabled"
-  }
-
-  monitoring {
-    enabled = true
-  }
-
-  tag_specifications {
-    resource_type = "instance"
-    tags          = merge(var.tags, { Name = "${var.cluster_name}-node" })
-  }
-
-  tag_specifications {
-    resource_type = "volume"
-    tags          = merge(var.tags, { Name = "${var.cluster_name}-node-volume" })
-  }
-
-  user_data = base64encode(<<-EOT
-    #!/bin/bash
-    set -ex
-    /etc/eks/bootstrap.sh '${var.cluster_name}' \
-      --apiserver-endpoint '${aws_eks_cluster.main.endpoint}' \
-      --b64-cluster-ca '${aws_eks_cluster.main.certificate_authority[0].data}'
-  EOT
-  )
-
-  tags = var.tags
-}
-
-data "aws_ssm_parameter" "eks_ami" {
-  name = "/aws/service/eks/optimized-ami/${var.kubernetes_version}/amazon-linux-2/recommended/image_id"
-}
-
 # OIDC Provider for IRSA
 data "tls_certificate" "eks" {
   url = aws_eks_cluster.main.identity[0].oidc[0].issuer
@@ -151,41 +62,112 @@ resource "aws_iam_openid_connect_provider" "eks" {
   tags            = var.tags
 }
 
-# EKS Add-ons
+# Fargate Pod Execution Role
+resource "aws_iam_role" "fargate_pod_execution" {
+  name = "${var.cluster_name}-fargate-pod-execution-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "eks-fargate-pods.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+      Condition = {
+        ArnLike = {
+          "aws:SourceArn" = "arn:aws:eks:*:*:fargateprofile/${var.cluster_name}/*"
+        }
+      }
+    }]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "fargate_pod_execution" {
+  role       = aws_iam_role.fargate_pod_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSFargatePodExecutionRolePolicy"
+}
+
+# Fargate Profiles — one per namespace
+resource "aws_eks_fargate_profile" "kube_system" {
+  cluster_name           = aws_eks_cluster.main.name
+  fargate_profile_name   = "${var.cluster_name}-kube-system"
+  pod_execution_role_arn = aws_iam_role.fargate_pod_execution.arn
+  subnet_ids             = var.private_subnet_ids
+
+  # Matches CoreDNS pods (label set by EKS addon)
+  selector {
+    namespace = "kube-system"
+    labels    = { "k8s-app" = "kube-dns" }
+  }
+
+  tags       = var.tags
+  depends_on = [aws_iam_role_policy_attachment.fargate_pod_execution]
+}
+
+resource "aws_eks_fargate_profile" "app" {
+  cluster_name           = aws_eks_cluster.main.name
+  fargate_profile_name   = "${var.cluster_name}-app"
+  pod_execution_role_arn = aws_iam_role.fargate_pod_execution.arn
+  subnet_ids             = var.private_subnet_ids
+
+  selector { namespace = "app" }
+
+  tags       = var.tags
+  depends_on = [aws_iam_role_policy_attachment.fargate_pod_execution]
+}
+
+resource "aws_eks_fargate_profile" "external_secrets" {
+  cluster_name           = aws_eks_cluster.main.name
+  fargate_profile_name   = "${var.cluster_name}-external-secrets"
+  pod_execution_role_arn = aws_iam_role.fargate_pod_execution.arn
+  subnet_ids             = var.private_subnet_ids
+
+  selector { namespace = "external-secrets" }
+
+  tags       = var.tags
+  depends_on = [aws_iam_role_policy_attachment.fargate_pod_execution]
+}
+
+resource "aws_eks_fargate_profile" "kyverno" {
+  cluster_name           = aws_eks_cluster.main.name
+  fargate_profile_name   = "${var.cluster_name}-kyverno"
+  pod_execution_role_arn = aws_iam_role.fargate_pod_execution.arn
+  subnet_ids             = var.private_subnet_ids
+
+  selector { namespace = "kyverno" }
+
+  tags       = var.tags
+  depends_on = [aws_iam_role_policy_attachment.fargate_pod_execution]
+}
+
+resource "aws_eks_fargate_profile" "monitoring" {
+  cluster_name           = aws_eks_cluster.main.name
+  fargate_profile_name   = "${var.cluster_name}-monitoring"
+  pod_execution_role_arn = aws_iam_role.fargate_pod_execution.arn
+  subnet_ids             = var.private_subnet_ids
+
+  selector { namespace = "monitoring" }
+
+  tags       = var.tags
+  depends_on = [aws_iam_role_policy_attachment.fargate_pod_execution]
+}
+
+# CoreDNS is the only addon needed on Fargate
+# (kube-proxy and vpc-cni are managed by AWS on Fargate; ebs-csi is unsupported)
+data "aws_eks_addon_version" "coredns" {
+  addon_name         = "coredns"
+  kubernetes_version = aws_eks_cluster.main.version
+  most_recent        = true
+}
+
 resource "aws_eks_addon" "coredns" {
   cluster_name                = aws_eks_cluster.main.name
   addon_name                  = "coredns"
-  addon_version               = "v1.11.1-eksbuild.8"
+  addon_version               = data.aws_eks_addon_version.coredns.version
+  resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
   tags                        = var.tags
 
-  depends_on = [aws_eks_node_group.main]
-}
-
-resource "aws_eks_addon" "kube_proxy" {
-  cluster_name                = aws_eks_cluster.main.name
-  addon_name                  = "kube-proxy"
-  addon_version               = "v1.30.3-eksbuild.5"
-  resolve_conflicts_on_update = "OVERWRITE"
-  tags                        = var.tags
-}
-
-resource "aws_eks_addon" "vpc_cni" {
-  cluster_name                = aws_eks_cluster.main.name
-  addon_name                  = "vpc-cni"
-  addon_version               = "v1.18.2-eksbuild.1"
-  resolve_conflicts_on_update = "OVERWRITE"
-  service_account_role_arn    = var.vpc_cni_irsa_role_arn
-  tags                        = var.tags
-}
-
-resource "aws_eks_addon" "aws_ebs_csi_driver" {
-  cluster_name                = aws_eks_cluster.main.name
-  addon_name                  = "aws-ebs-csi-driver"
-  addon_version               = "v1.30.0-eksbuild.1"
-  resolve_conflicts_on_update = "OVERWRITE"
-  service_account_role_arn    = var.ebs_csi_irsa_role_arn
-  tags                        = var.tags
-
-  depends_on = [aws_eks_node_group.main]
+  depends_on = [aws_eks_fargate_profile.kube_system]
 }

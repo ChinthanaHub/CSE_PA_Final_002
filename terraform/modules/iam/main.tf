@@ -35,42 +35,6 @@ resource "aws_iam_role_policy_attachment" "eks_vpc_resource_controller" {
   role       = aws_iam_role.eks_cluster.name
 }
 
-# EKS Node Group IAM Role
-resource "aws_iam_role" "eks_node_group" {
-  name = "${var.name}-eks-node-group-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "ec2.amazonaws.com" }
-    }]
-  })
-
-  tags = var.tags
-}
-
-resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-  role       = aws_iam_role.eks_node_group.name
-}
-
-resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-  role       = aws_iam_role.eks_node_group.name
-}
-
-resource "aws_iam_role_policy_attachment" "ec2_container_registry_read" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-  role       = aws_iam_role.eks_node_group.name
-}
-
-resource "aws_iam_role_policy_attachment" "ssm_managed_instance" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-  role       = aws_iam_role.eks_node_group.name
-}
-
 # GitHub Actions OIDC Role
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
@@ -206,7 +170,9 @@ resource "aws_iam_policy" "github_actions" {
           "eks:AssociateAccessPolicy", "eks:DisassociateAccessPolicy",
           "eks:ListAccessEntries", "eks:ListAssociatedAccessPolicies",
           "eks:TagResource", "eks:UntagResource", "eks:ListTagsForResource",
-          "eks:ListClusters", "eks:ListNodegroups", "eks:DescribeAddonVersions"
+          "eks:ListClusters", "eks:ListNodegroups", "eks:DescribeAddonVersions",
+          "eks:CreateFargateProfile", "eks:DeleteFargateProfile",
+          "eks:DescribeFargateProfile", "eks:ListFargateProfiles"
         ]
         Resource = "*"
       },
