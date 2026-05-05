@@ -28,41 +28,6 @@ variable "kubernetes_version" {
   default     = "1.32"
 }
 
-variable "node_instance_types" {
-  description = "EC2 instance types for EKS nodes"
-  type        = list(string)
-  default     = ["t3.medium", "t3a.medium"]
-}
-
-variable "capacity_type" {
-  description = "EKS node capacity type (ON_DEMAND or SPOT)"
-  type        = string
-  default     = "SPOT"
-}
-
-variable "node_desired_size" {
-  description = "Desired number of EKS nodes"
-  type        = number
-  default     = 1
-}
-
-variable "node_min_size" {
-  description = "Minimum number of EKS nodes"
-  type        = number
-  default     = 1
-}
-
-variable "node_max_size" {
-  description = "Maximum number of EKS nodes"
-  type        = number
-  default     = 2
-}
-
-variable "node_volume_size" {
-  description = "EBS volume size for EKS nodes (GB)"
-  type        = number
-  default     = 50
-}
 
 variable "github_org" {
   description = "GitHub organization name"
