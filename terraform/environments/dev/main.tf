@@ -59,6 +59,8 @@ module "eks" {
   cluster_role_arn          = module.iam.eks_cluster_role_arn
   private_subnet_ids        = module.vpc.private_subnet_ids
   cluster_security_group_id = module.vpc.eks_cluster_security_group_id
+  endpoint_public_access    = true
+  public_access_cidrs       = ["0.0.0.0/0"]
   kms_key_arn               = module.kms.eks_kms_key_arn
   cloudwatch_kms_key_arn    = module.kms.cloudwatch_kms_key_arn
   tags                      = local.common_tags

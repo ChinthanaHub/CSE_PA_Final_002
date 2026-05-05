@@ -29,6 +29,18 @@ variable "cluster_security_group_id" {
   type        = string
 }
 
+variable "endpoint_public_access" {
+  description = "Enable public access to the EKS API server"
+  type        = bool
+  default     = false
+}
+
+variable "public_access_cidrs" {
+  description = "CIDR blocks allowed to access the public EKS API server"
+  type        = list(string)
+  default     = []
+}
+
 variable "kms_key_arn" {
   description = "KMS key ARN for EKS secrets encryption"
   type        = string
