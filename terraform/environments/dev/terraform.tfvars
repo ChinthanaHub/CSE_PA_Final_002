@@ -9,3 +9,4 @@ kubernetes_version   = "1.31"
 github_org           = "ChinthanaHub"
 github_repo          = "CSE_PA_Final_002"
 alert_email          = "thanachin74@gmail.com"
+
