@@ -200,7 +200,7 @@ jobs:
     needs: [build, terraform-dev]
     environment: dev
     env:
-      KUBECONFIG: ~/.kube/config
+      KUBECONFIG: /home/runner/.kube/config
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -229,15 +229,17 @@ jobs:
 
       - name: Update kubeconfig
         run: |
-          mkdir -p ~/.kube
+          mkdir -p /home/runner/.kube
           aws eks update-kubeconfig \
             --name ${{ needs.terraform-dev.outputs.cluster-name }} \
             --region ${{ env.AWS_REGION }} \
-            --kubeconfig ~/.kube/config
+            --kubeconfig /home/runner/.kube/config \
+            --alias github-actions \
+            --overwrite-existing
+          kubectl config view --kubeconfig /home/runner/.kube/config
+          kubectl config current-context --kubeconfig /home/runner/.kube/config
 
       - name: Apply Kubernetes manifests
-        env:
-          KUBECONFIG: ~/.kube/config
         run: |
           kubectl apply --validate=false -f kubernetes/rbac/
           kubectl apply --validate=false -f kubernetes/network-policies/
