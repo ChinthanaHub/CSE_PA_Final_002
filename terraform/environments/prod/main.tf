@@ -36,6 +36,7 @@ module "iam" {
   terraform_state_bucket = "cse-pa-final-tfstate-prod"
   terraform_lock_table   = "cse-pa-final-tfstate-lock-prod"
   ecr_kms_key_arn        = module.kms.s3_kms_key_arn
+  s3_kms_key_arn         = module.kms.s3_kms_key_arn
   tags                   = local.common_tags
 }
 
@@ -56,19 +57,10 @@ module "eks" {
   kubernetes_version        = var.kubernetes_version
   environment               = local.environment
   cluster_role_arn          = module.iam.eks_cluster_role_arn
-  node_role_arn             = module.iam.eks_node_group_role_arn
   private_subnet_ids        = module.vpc.private_subnet_ids
   cluster_security_group_id = module.vpc.eks_cluster_security_group_id
-  nodes_security_group_id   = module.vpc.eks_nodes_security_group_id
   kms_key_arn               = module.kms.eks_kms_key_arn
   cloudwatch_kms_key_arn    = module.kms.cloudwatch_kms_key_arn
-  node_instance_types       = var.node_instance_types
-  node_desired_size         = var.node_desired_size
-  node_min_size             = var.node_min_size
-  node_max_size             = var.node_max_size
-  node_volume_size          = var.node_volume_size
-  vpc_cni_irsa_role_arn     = module.irsa.vpc_cni_role_arn
-  ebs_csi_irsa_role_arn     = module.irsa.ebs_csi_driver_role_arn
   tags                      = local.common_tags
 }
 

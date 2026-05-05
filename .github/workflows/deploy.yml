@@ -37,7 +37,7 @@ jobs:
     outputs:
       image-digest: ${{ steps.push.outputs.digest }}
       image-tag: ${{ steps.meta.outputs.version }}
-      ecr-image: ${{ steps.push.outputs.image }}
+      ecr-image: ${{ steps.image-uri.outputs.ecr-image }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -119,6 +119,14 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
+
+      # ── Construct Full ECR Image URI ──
+      - name: Construct ECR image URI
+        id: image-uri
+        run: |
+          ECR_IMAGE="${{ steps.ecr-login.outputs.registry }}/${{ env.APP_NAME }}@${{ steps.push.outputs.digest }}"
+          echo "ecr-image=${ECR_IMAGE}" >> $GITHUB_OUTPUT
+          echo "Pushed image: ${ECR_IMAGE}"
 
       # ── Image Signing (Cosign) ──
       - name: Install Cosign

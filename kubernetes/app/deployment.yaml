@@ -56,7 +56,7 @@ spec:
       containers:
         - name: app
           # Image is replaced by pipeline using digest: registry/repo@sha256:...
-          image: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/cse-pa-app:latest
+          image: 840032438169.dkr.ecr.us-east-1.amazonaws.com/cse-pa-app:1.0.0
           imagePullPolicy: Always
 
           ports:

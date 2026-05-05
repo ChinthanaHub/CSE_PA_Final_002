@@ -171,3 +171,5 @@ resource "aws_eks_addon" "coredns" {
 
   depends_on = [aws_eks_fargate_profile.kube_system]
 }
+
+
