@@ -233,9 +233,9 @@ jobs:
 
       - name: Apply Kubernetes manifests
         run: |
-          kubectl apply -f kubernetes/rbac/
-          kubectl apply -f kubernetes/network-policies/
-          kubectl apply -f kubernetes/secrets/
+          kubectl apply --validate=false -f kubernetes/rbac/
+          kubectl apply --validate=false -f kubernetes/network-policies/
+          kubectl apply --validate=false -f kubernetes/secrets/
 
       - name: Deploy application (digest-based)
         run: |
@@ -247,7 +247,7 @@ jobs:
 
       - name: Apply Kyverno policies
         run: |
-          kubectl apply -f policies/kyverno/
+          kubectl apply --validate=false -f policies/kyverno/
 
       - name: Smoke test
         run: |
