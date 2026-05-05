@@ -199,6 +199,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, terraform-dev]
     environment: dev
+    env:
+      KUBECONFIG: ~/.kube/config
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -227,11 +229,15 @@ jobs:
 
       - name: Update kubeconfig
         run: |
+          mkdir -p ~/.kube
           aws eks update-kubeconfig \
             --name ${{ needs.terraform-dev.outputs.cluster-name }} \
-            --region ${{ env.AWS_REGION }}
+            --region ${{ env.AWS_REGION }} \
+            --kubeconfig ~/.kube/config
 
       - name: Apply Kubernetes manifests
+        env:
+          KUBECONFIG: ~/.kube/config
         run: |
           kubectl apply --validate=false -f kubernetes/rbac/
           kubectl apply --validate=false -f kubernetes/network-policies/
