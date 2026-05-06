@@ -248,6 +248,7 @@ jobs:
           ls -la ./kubernetes
           kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f ./kubernetes/rbac/
           kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f ./kubernetes/network-policies/
+          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f ./kubernetes/app/
 
       - name: Deploy application (digest-based)
         run: |
