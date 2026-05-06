@@ -274,7 +274,7 @@ jobs:
       - name: Restart External Secrets webhook deployment
         run: |
           kubectl --kubeconfig /home/runner/.kube/config rollout restart deployment/external-secrets-webhook -n external-secrets
-          kubectl --kubeconfig /home/runner/.kube/config rollout status deployment/external-secrets-webhook -n external-secrets --timeout=180s
+          kubectl --kubeconfig /home/runner/.kube/config rollout status deployment/external-secrets-webhook -n external-secrets --timeout=600s
 
       - name: Wait for External Secrets webhook readiness
         run: |
