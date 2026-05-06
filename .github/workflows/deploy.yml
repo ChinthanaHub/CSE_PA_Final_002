@@ -241,10 +241,70 @@ jobs:
           kubectl --kubeconfig /home/runner/.kube/config auth can-i list pods --all-namespaces || true
 
       - name: Apply Kubernetes manifests
+        working-directory: ${{ github.workspace }}
         run: |
-          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f kubernetes/rbac/
-          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f kubernetes/network-policies/
-          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f kubernetes/secrets/
+          echo "PWD=$(pwd)"
+          ls -la .
+          ls -la ./kubernetes
+          ls -la ./kubernetes/secrets
+          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f ./kubernetes/rbac/
+          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f ./kubernetes/network-policies/
+
+      - name: Install or reconcile External Secrets operator
+        run: |
+          helm repo add external-secrets https://charts.external-secrets.io 2>/dev/null || true
+          helm repo update
+          kubectl --kubeconfig /home/runner/.kube/config -n external-secrets delete secret external-secrets-webhook --ignore-not-found
+          kubectl --kubeconfig /home/runner/.kube/config delete validatingwebhookconfiguration \
+            -l app.kubernetes.io/name=external-secrets --ignore-not-found
+          helm upgrade --install external-secrets external-secrets/external-secrets \
+            -n external-secrets --create-namespace \
+            --set installCRDs=true \
+            --set certController.create=true \
+            --set certController.requeueInterval=5m \
+            --set webhook.create=true \
+            --set resources.requests.cpu=100m \
+            --set resources.requests.memory=128Mi \
+            --set webhook.resources.requests.cpu=100m \
+            --set webhook.resources.requests.memory=128Mi \
+            --set certController.resources.requests.cpu=100m \
+            --set certController.resources.requests.memory=128Mi \
+            --wait --timeout 300s
+
+      - name: Restart External Secrets webhook deployment
+        run: |
+          kubectl --kubeconfig /home/runner/.kube/config rollout restart deployment/external-secrets-webhook -n external-secrets
+          kubectl --kubeconfig /home/runner/.kube/config rollout status deployment/external-secrets-webhook -n external-secrets --timeout=180s
+
+      - name: Wait for External Secrets webhook readiness
+        run: |
+          kubectl --kubeconfig /home/runner/.kube/config rollout status \
+            deployment/external-secrets-cert-controller -n external-secrets --timeout=180s
+          kubectl --kubeconfig /home/runner/.kube/config rollout status \
+            deployment/external-secrets-webhook -n external-secrets --timeout=180s
+          for i in {1..30}; do
+            ENDPOINTS=$(kubectl --kubeconfig /home/runner/.kube/config get endpoints external-secrets-webhook \
+              -n external-secrets -o jsonpath='{.subsets[*].addresses[*].ip}')
+            if [ -n "$ENDPOINTS" ]; then
+              echo "External Secrets webhook endpoints ready: $ENDPOINTS"
+              break
+            fi
+            echo "Waiting for external-secrets-webhook endpoints... ($i/30)"
+            sleep 5
+          done
+          SECRET=$(kubectl --kubeconfig /home/runner/.kube/config get secret external-secrets-webhook -n external-secrets -o jsonpath='{.data.tls\.crt}' 2>/dev/null || true)
+          if [ -z "$SECRET" ]; then
+            echo "ERROR: external-secrets-webhook secret missing"; exit 1
+          fi
+          echo "$SECRET" | base64 -d > /tmp/webhook.crt
+          openssl x509 -in /tmp/webhook.crt -text -noout | grep -A2 "Subject Alternative Name"
+          if ! openssl x509 -in /tmp/webhook.crt -text -noout | grep -q "external-secrets-webhook.external-secrets.svc"; then
+            echo "ERROR: webhook certificate SAN does not include external-secrets-webhook.external-secrets.svc"; exit 1
+          fi
+
+      - name: Apply External Secrets manifests
+        run: |
+          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f ./kubernetes/secrets/
 
       - name: Deploy application (digest-based)
         run: |
