@@ -20,11 +20,12 @@ LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.title="cse-pa-app" \
       org.opencontainers.image.vendor="ChinthanaHub"
 
-COPY --from=builder /build/app /app
+RUN mkdir -p /app/cache /tmp
+COPY --from=builder /build/app /app/app
 
 USER nonroot:nonroot
 
 EXPOSE 8080 9090
 
-ENTRYPOINT ["/app"]
+ENTRYPOINT ["/app/app"]
 
