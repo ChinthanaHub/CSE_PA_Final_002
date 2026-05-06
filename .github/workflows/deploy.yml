@@ -233,30 +233,34 @@ jobs:
           aws eks update-kubeconfig \
             --name ${{ needs.terraform-dev.outputs.cluster-name }} \
             --region ${{ env.AWS_REGION }} \
-            --kubeconfig /home/runner/.kube/config
-          cat /home/runner/.kube/config
+            --kubeconfig /home/runner/.kube/config \
+            --alias github-actions
+          kubectl config view --kubeconfig /home/runner/.kube/config
+          kubectl config use-context github-actions --kubeconfig /home/runner/.kube/config
+          kubectl config current-context --kubeconfig /home/runner/.kube/config
+          kubectl --kubeconfig /home/runner/.kube/config auth can-i list pods --all-namespaces || true
 
       - name: Apply Kubernetes manifests
         run: |
-          kubectl apply --validate=false -f kubernetes/rbac/
-          kubectl apply --validate=false -f kubernetes/network-policies/
-          kubectl apply --validate=false -f kubernetes/secrets/
+          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f kubernetes/rbac/
+          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f kubernetes/network-policies/
+          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f kubernetes/secrets/
 
       - name: Deploy application (digest-based)
         run: |
-          kubectl set image deployment/app \
+          kubectl --kubeconfig /home/runner/.kube/config set image deployment/app \
             app="${{ needs.build.outputs.ecr-image }}" \
             -n app
 
-          kubectl rollout status deployment/app -n app --timeout=300s
+          kubectl --kubeconfig /home/runner/.kube/config rollout status deployment/app -n app --timeout=300s
 
       - name: Apply Kyverno policies
         run: |
-          kubectl apply --validate=false -f policies/kyverno/
+          kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f policies/kyverno/
 
       - name: Smoke test
         run: |
-          kubectl get pods -n app
-          kubectl wait --for=condition=ready pod -l app=app -n app --timeout=120s
+          kubectl --kubeconfig /home/runner/.kube/config get pods -n app
+          kubectl --kubeconfig /home/runner/.kube/config wait --for=condition=ready pod -l app=app -n app --timeout=120s
 
 
