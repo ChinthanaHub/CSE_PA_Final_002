@@ -302,6 +302,23 @@ jobs:
             echo "ERROR: webhook certificate SAN does not include external-secrets-webhook.external-secrets.svc"; exit 1
           fi
 
+      - name: Verify live webhook service cert has the correct SAN
+        run: |
+          for i in {1..30}; do
+            SAN=$(kubectl --kubeconfig /home/runner/.kube/config run -n external-secrets webhook-cert-check --rm -i --restart=Never --image=nicolaka/netshoot -- /bin/sh -c "openssl s_client -connect external-secrets-webhook.external-secrets.svc:443 -servername external-secrets-webhook.external-secrets.svc < /dev/null 2>/dev/null | openssl x509 -text -noout 2>/dev/null | grep -o 'external-secrets-webhook.external-secrets.svc' | head -1")
+            if [ -n "$SAN" ]; then
+              echo "OK: live webhook service cert has correct SAN"
+              kubectl --kubeconfig /home/runner/.kube/config run -n external-secrets webhook-cert-check --rm -i --restart=Never --image=nicolaka/netshoot -- /bin/sh -c "openssl s_client -connect external-secrets-webhook.external-secrets.svc:443 -servername external-secrets-webhook.external-secrets.svc < /dev/null 2>/dev/null | openssl x509 -text -noout | grep -A2 'Subject Alternative Name'"
+              exit 0
+            fi
+            echo "Waiting for live webhook cert ($i/30)..."
+            sleep 10
+          done
+          echo "ERROR: live webhook service certificate still wrong after 5 minutes"
+          kubectl --kubeconfig /home/runner/.kube/config logs -n external-secrets deployment/external-secrets-webhook --tail=100
+          kubectl --kubeconfig /home/runner/.kube/config logs -n external-secrets deployment/external-secrets-cert-controller --tail=100
+          exit 1
+
       - name: Apply External Secrets manifests
         run: |
           kubectl --kubeconfig /home/runner/.kube/config apply --validate=false -f ./kubernetes/secrets/
