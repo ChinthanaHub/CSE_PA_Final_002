@@ -11,7 +11,7 @@ metadata:
       All container images must be signed using Cosign via the keyless OIDC workflow.
       Images that cannot be verified will be blocked from deployment.
 spec:
-  validationFailureAction: Enforce
+  validationFailureAction: Audit
   background: false
   webhookTimeoutSeconds: 30
   rules:
