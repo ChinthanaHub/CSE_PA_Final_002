@@ -66,6 +66,25 @@ module "eks" {
   tags                      = local.common_tags
 }
 
+resource "kubernetes_config_map" "aws_auth" {
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = {
+    mapRoles = yamlencode([
+      {
+        rolearn  = module.iam.github_actions_role_arn
+        username = "github-actions"
+        groups   = ["system:masters"]
+      }
+    ])
+  }
+
+  depends_on = [module.eks]
+}
+
 module "secrets" {
   source = "../../modules/secrets"
 
