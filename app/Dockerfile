@@ -15,12 +15,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o app ./cmd/server/
 # Final minimal image
 FROM gcr.io/distroless/static-debian12:nonroot
 
+ARG BUILD_DATE=""
+ARG VCS_REF=""
+
 LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.title="cse-pa-app" \
       org.opencontainers.image.vendor="ChinthanaHub"
 
-RUN mkdir -p /app/cache /tmp
 COPY --from=builder /build/app /app/app
 
 USER nonroot:nonroot
