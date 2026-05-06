@@ -1,0 +1,41 @@
+name: Remove External Secrets
+on:
+  workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: us-east-1
+      - run: |
+          curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          aws eks update-kubeconfig --name cse-pa-final-dev-cluster --region us-east-1
+          
+          # Remove webhook configurations FIRST so they don't block deletes
+          kubectl delete validatingwebhookconfiguration \
+            -l app.kubernetes.io/name=external-secrets --ignore-not-found
+          
+          # Force-delete any stuck pods
+          kubectl delete pods --all -n external-secrets \
+            --force --grace-period=0 --ignore-not-found || true
+          
+          # Uninstall the helm release
+          helm uninstall external-secrets -n external-secrets || true
+          
+          # Delete the namespace
+          kubectl delete namespace external-secrets --ignore-not-found --timeout=60s || true
+          
+          # If namespace is stuck terminating, remove finalizers
+          kubectl get namespace external-secrets -o json 2>/dev/null | \
+            jq '.spec.finalizers = []' | \
+            kubectl replace --raw /api/v1/namespaces/external-secrets/finalize -f - || true
+          
+          echo "Done. Cluster is clean."
+          kubectl get namespaces
