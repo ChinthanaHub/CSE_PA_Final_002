@@ -23,7 +23,7 @@ spec:
               namespaces: [app]
       verifyImages:
         - imageReferences:
-            - "*.dkr.ecr.us-east-1.amazonaws.com/cse-pa-app:*"
+            - "*.dkr.ecr.us-east-1.amazonaws.com/cse-pa-final-dev-app:*"
           attestors:
             - entries:
                 - keyless:
