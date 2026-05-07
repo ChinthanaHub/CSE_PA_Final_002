@@ -1,10 +1,10 @@
 param()
 
-# PowerShell wrapper for force unlocking Terraform state.
-# Use this when KMS key issues prevent normal operations.
+# PowerShell wrapper for destroying EKS cluster only.
+# Leaves VPC, IAM, and KMS resources intact.
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$bashScript = Join-Path $scriptDir 'terraform-dev-force-unlock.sh'
+$bashScript = Join-Path $scriptDir 'destroy-eks-only.sh'
 
 if (-not (Test-Path $bashScript)) {
     Write-Error "Shell script not found: $bashScript"

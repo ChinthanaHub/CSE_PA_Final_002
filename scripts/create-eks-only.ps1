@@ -1,10 +1,10 @@
 param()
 
-# PowerShell wrapper for running the EKS-only destroy shell script.
-# Use this from the repository root in PowerShell.
+# PowerShell wrapper for creating EKS cluster only.
+# References existing VPC, IAM, and KMS resources.
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$bashScript = Join-Path $scriptDir 'terraform-dev-destroy-eks-only.sh'
+$bashScript = Join-Path $scriptDir 'create-eks-only.sh'
 
 if (-not (Test-Path $bashScript)) {
     Write-Error "Shell script not found: $bashScript"
