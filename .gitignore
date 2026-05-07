@@ -29,8 +29,12 @@ secrets.json
 # Allow Terraform module directories that contain "secret" in their name
 !terraform/modules/secrets/
 !terraform/modules/secrets/**
+
+# Scripts - allow in scripts/ directory
 *.ps1
 *.sh
+!scripts/*.ps1
+!scripts/*.sh
 
 # OS
 .DS_Store
